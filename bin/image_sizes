@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# docker image inspect の Size はローカル保存時の値で、レジストリからの pull 転送量とは一致しない。
+set -euo pipefail
+out="${1:-results/image_sizes.json}"
+mri=$(docker image inspect rails-ruby4-bench/mri --format '{{.Size}}')
+tr=$(docker image inspect rails-ruby4-bench/truffleruby --format '{{.Size}}')
+printf '{"mri": %s, "mri-yjit": %s, "truffleruby": %s}\n' "$mri" "$mri" "$tr" > "$out"
+cat "$out"

@@ -1,0 +1,6 @@
+<li id="<%= dom_id(article) %>">
+  <h2><%= link_to article.title, article_path(article) %></h2>
+  <p><%= article.author.name %> / <%= article.published_at.to_fs(:long) %> / <%= number_with_delimiter(article.score * 1000) %></p>
+  <p><%= truncate(article.body, length: 120) %></p>
+  <p><%= pluralize(article.comments.size, "comment") %><% if (c = article.comments.last) %>: <%= truncate(c.body, length: 40) %><% end %></p>
+</li>

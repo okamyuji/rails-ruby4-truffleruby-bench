@@ -1,0 +1,36 @@
+FROM buildpack-deps:stable
+
+# ghcr.io/graalvm/truffleruby-community は執筆時点で 25 系（Ruby 3.3 互換）までしか
+# 公開されていないため、Ruby 4.0 互換の 40.0.0 は release アセットを直接展開する。
+ENV LANG=C.UTF-8 \
+    GEM_HOME=/usr/local/bundle \
+    BUNDLE_PATH=/usr/local/bundle \
+    BUNDLE_SILENCE_ROOT_WARNING=1 \
+    BUNDLE_APP_CONFIG=/usr/local/bundle \
+    BUNDLE_JOBS=4 \
+    BUNDLE_RETRY=3 \
+    RAILS_ENV=production \
+    PATH=/usr/local/bundle/bin:/usr/local/bin:/usr/bin:/bin
+
+ARG TRUFFLERUBY_VERSION=40.0.0
+ARG TRUFFLERUBY_SHA256_AARCH64=0a6e08595c5b0a38707ef94c0b0f81ebe1843305336c252bfdb77ef0eabe5a7d
+ARG TRUFFLERUBY_SHA256_AMD64=4d744085f48c8ba789228f3686e3c256fcc6b77ce1ff736e456b72031d0cb973
+
+RUN set -eux; \
+    case "$(uname -m)" in \
+      x86_64) arch=amd64; sha="$TRUFFLERUBY_SHA256_AMD64" ;; \
+      aarch64) arch=aarch64; sha="$TRUFFLERUBY_SHA256_AARCH64" ;; \
+      *) echo "unsupported arch: $(uname -m)" >&2; exit 1 ;; \
+    esac; \
+    url="https://github.com/truffleruby/truffleruby/releases/download/graal-${TRUFFLERUBY_VERSION}/truffleruby-community-${TRUFFLERUBY_VERSION}-linux-${arch}.tar.gz"; \
+    wget -q -O /tmp/tr.tar.gz "$url"; \
+    echo "${sha}  /tmp/tr.tar.gz" | sha256sum -c -; \
+    tar -xzf /tmp/tr.tar.gz -C /usr/local --strip-components=1; \
+    rm /tmp/tr.tar.gz; \
+    /usr/local/lib/truffle/post_install_hook.sh; \
+    ruby --version; \
+    mkdir -p "$GEM_HOME" /work && chmod 777 "$GEM_HOME"
+
+WORKDIR /work
+COPY Gemfile Gemfile.lock* ./
+RUN bundle install

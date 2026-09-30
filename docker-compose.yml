@@ -1,0 +1,26 @@
+x-bench: &bench
+  working_dir: /work
+  volumes:
+    - .:/work
+
+services:
+  mri:
+    <<: *bench
+    build: { context: ., dockerfile: docker/Dockerfile.mri }
+    image: rails-ruby4-bench/mri
+    environment:
+      BENCH_RUNTIME: mri
+
+  mri-yjit:
+    <<: *bench
+    image: rails-ruby4-bench/mri
+    environment:
+      BENCH_RUNTIME: mri-yjit
+      RUBYOPT: --yjit
+
+  truffleruby:
+    <<: *bench
+    build: { context: ., dockerfile: docker/Dockerfile.truffleruby }
+    image: rails-ruby4-bench/truffleruby
+    environment:
+      BENCH_RUNTIME: truffleruby

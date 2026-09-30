@@ -1,0 +1,6 @@
+#!/usr/bin/env ruby
+require_relative "../lib/summary"
+raw = ARGV.fetch(0, "results/raw")
+out = ARGV.fetch(1, "results/summary.json")
+File.write(out, JSON.pretty_generate(Summary.build(raw)))
+puts "wrote #{out}"

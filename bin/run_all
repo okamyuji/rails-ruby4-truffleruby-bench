@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+# 全ランタイム×全ワークロードを RUNS 回まわす。1回ごとに新しいコンテナで起動し、
+# ランタイムの順序を回ごとにずらして、時間帯による環境の揺れが特定ランタイムに偏らないようにする。
+set -euo pipefail
+
+RUNS="${RUNS:-5}"
+WARMUP_SEC="${WARMUP_SEC:-300}"
+MEASURE_SEC="${MEASURE_SEC:-15}"
+BOOT_SAMPLES="${BOOT_SAMPLES:-5}"
+OUT="${OUT:-results/raw}"
+RUNTIMES=(mri mri-yjit truffleruby)
+WORKLOADS=(health html_index json_index create)
+PARALLEL_WORKLOADS=" html_index json_index "
+THREADS="${THREADS:-1,2,4,8}"
+
+run() {
+  docker compose run --rm -T -e WARMUP_SEC="$WARMUP_SEC" -e MEASURE_SEC="$MEASURE_SEC" "$@"
+}
+
+for n in $(seq 1 "$RUNS"); do
+  offset=$(( (n - 1) % ${#RUNTIMES[@]} ))
+  for i in 0 1 2; do
+    rt="${RUNTIMES[$(( (i + offset) % ${#RUNTIMES[@]} ))]}"
+    dir="$OUT/$rt/run-$n"
+    mkdir -p "$dir"
+    run "$rt" ruby bin/boot "$BOOT_SAMPLES" "$dir/boot.json"
+    for w in "${WORKLOADS[@]}"; do
+      threads=""
+      [[ "$PARALLEL_WORKLOADS" == *" $w "* ]] && threads="$THREADS"
+      run -e THREADS="$threads" "$rt" ruby bin/bench "$w" "$dir/$w.json"
+    done
+  done
+done

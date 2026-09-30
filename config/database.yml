@@ -1,0 +1,5 @@
+production:
+  adapter: sqlite3
+  database: <%= ENV.fetch("BENCH_DB", "/tmp/bench.sqlite3") %>
+  pool: 16
+  timeout: 5000

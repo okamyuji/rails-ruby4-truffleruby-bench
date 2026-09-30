@@ -1,0 +1,5 @@
+/tmp/
+/results/smoke/
+/results/pilot/
+/results/*.log
+.DS_Store

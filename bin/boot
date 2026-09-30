@@ -1,0 +1,21 @@
+#!/usr/bin/env ruby
+# 使い方: bin/boot <回数> <out.json>
+# プロセス起動からRailsが最初のレスポンスを返して終了するまでを、親プロセス側の壁時計で測る。
+require "json"
+require "rbconfig"
+
+times = Integer(ARGV.fetch(0))
+out = ARGV.fetch(1)
+script = <<~RUBY
+  require "./config/environment"
+  status, = Rails.application.call(Rack::MockRequest.env_for("/up"))
+  exit(status == 200 ? 0 : 1)
+RUBY
+
+samples = Array.new(times) do
+  t = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+  system(RbConfig.ruby, "-e", script, exception: true)
+  (Process.clock_gettime(Process::CLOCK_MONOTONIC) - t) * 1000
+end
+File.write(out, JSON.pretty_generate(runtime: ENV.fetch("BENCH_RUNTIME"), boot_ms: samples))
+puts "#{ENV["BENCH_RUNTIME"]} boot: #{samples.map(&:round).join(", ")} ms"

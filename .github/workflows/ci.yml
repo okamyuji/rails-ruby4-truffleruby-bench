@@ -1,0 +1,22 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  security:
+    uses: okamyuji/reusable-workflows/.github/workflows/security-scan.yml@v1
+
+  # rails-ci.yml は test 環境と bin/rails を持つ通常の Rails アプリが前提で、
+  # production 設定だけで動くこのベンチには合わないため、スモーク実行を独自ジョブで持つ。
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - run: make build
+      - run: make test
+      - run: make smoke

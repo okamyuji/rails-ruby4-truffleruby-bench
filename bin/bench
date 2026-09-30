@@ -1,0 +1,121 @@
+#!/usr/bin/env ruby
+# 使い方: bin/bench <workload> <out.json>
+# 1プロセスで1ワークロードだけを測る。前のワークロードで温まったJITが次の計測に混ざらないようにするため。
+WORKLOAD = ARGV.fetch(0)
+OUT = ARGV.fetch(1)
+WARMUP_SEC = Integer(ENV.fetch("WARMUP_SEC", "300"))
+MEASURE_SEC = Integer(ENV.fetch("MEASURE_SEC", "15"))
+THREADS = ENV.fetch("THREADS", "").split(",").map { Integer(it) }
+
+require_relative "../config/environment"
+require "json"
+
+def setup_db
+  ActiveRecord::Schema.verbose = false
+  load Rails.root.join("db/schema.rb").to_s
+  rng = Random.new(42)
+  now = Time.utc(2026, 9, 1)
+  Author.insert_all(Array.new(20) { |i| { name: "Author #{i + 1}", created_at: now, updated_at: now } })
+  Article.insert_all(Array.new(1_000) do |i|
+    { author_id: rng.rand(1..20), title: "Article #{i + 1}", body: "Lorem ipsum dolor sit amet. " * 12,
+      score: rng.rand(0..100), published: true, published_at: now - (i * 3600), created_at: now, updated_at: now }
+  end)
+  Comment.insert_all(Array.new(5_000) do |i|
+    { article_id: rng.rand(1..1_000), body: "Comment #{i + 1} consectetur adipiscing elit.", created_at: now, updated_at: now }
+  end)
+end
+
+REQUESTS = {
+  "health" => { method: "GET", path: "/up", status: 200 },
+  "html_index" => { method: "GET", path: "/articles", status: 200 },
+  "json_index" => { method: "GET", path: "/api/articles", status: 200 },
+  "create" => { method: "POST", path: "/api/articles", status: 201 }
+}.freeze
+
+APP = Rails.application
+SPEC = REQUESTS.fetch(WORKLOAD)
+
+def call_once(seq)
+  opts = { method: SPEC[:method] }
+  if SPEC[:method] == "POST"
+    opts[:input] = JSON.generate(article: { author_id: (seq % 20) + 1, title: "Bench #{seq}",
+                                            body: "Bench body text for create workload. " * 4, score: seq % 101 })
+    opts["CONTENT_TYPE"] = "application/json"
+  end
+  status, _headers, body = APP.call(Rack::MockRequest.env_for(SPEC[:path], opts))
+  size = 0
+  body.each { size += it.bytesize }
+  body.close if body.respond_to?(:close)
+  raise "#{WORKLOAD}: unexpected status #{status}" unless status == SPEC[:status]
+  raise "#{WORKLOAD}: empty body" if size.zero?
+end
+
+def now = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+
+def rss_mb(key) = File.read("/proc/self/status")[/^#{key}:\s+(\d+)/, 1].to_i / 1024.0
+
+setup_db
+seq = 0
+
+# ウォームアップ: 1秒ごとの処理件数を曲線として残す
+warmup = []
+deadline = now + WARMUP_SEC
+bucket_end = now + 1
+count = 0
+while (t = now) < deadline
+  # 1リクエストが1秒をまたいでも区間を欠かさないよう、経過した区間の数だけ詰める
+  while t >= bucket_end
+    warmup << count
+    count = 0
+    bucket_end += 1
+  end
+  call_once(seq += 1)
+  count += 1
+end
+
+# 定常計測: 1リクエストずつの所要時間を記録する
+lat = []
+deadline = now + MEASURE_SEC
+while now < deadline
+  t = now
+  call_once(seq += 1)
+  lat << (now - t)
+end
+sorted = lat.sort
+pct = ->(q) { sorted[((sorted.size - 1) * q).round] * 1000 }
+
+# 並列: 総時間を固定し、スレッド数ごとの合計処理件数を比べる
+parallel = THREADS.map do |n|
+  counter = Array.new(n, 0)
+  stop_at = now + MEASURE_SEC
+  base = seq += 1_000_000
+  n.times.map do |ti|
+    Thread.new do
+      local = base + (ti * 100_000)
+      until now >= stop_at
+        call_once(local += 1)
+        counter[ti] += 1
+      end
+    end
+  end.each(&:join)
+  { threads: n, rps: counter.sum / MEASURE_SEC.to_f }
+end
+
+result = {
+  runtime: ENV.fetch("BENCH_RUNTIME"),
+  ruby_description: RUBY_DESCRIPTION,
+  yjit_enabled: defined?(RubyVM::YJIT) ? RubyVM::YJIT.enabled? : false,
+  rails: Rails.version,
+  workload: WORKLOAD,
+  warmup_sec: WARMUP_SEC,
+  measure_sec: MEASURE_SEC,
+  warmup_rps: warmup,
+  rps: lat.size / lat.sum,
+  p50_ms: pct.(0.50),
+  p99_ms: pct.(0.99),
+  requests: lat.size,
+  peak_rss_mb: rss_mb("VmHWM"),
+  parallel: parallel
+}
+File.write(OUT, JSON.pretty_generate(result))
+puts "#{result[:runtime]} #{WORKLOAD}: #{result[:rps].round(1)} req/s p50=#{result[:p50_ms].round(2)}ms rss=#{result[:peak_rss_mb].round}MB"
