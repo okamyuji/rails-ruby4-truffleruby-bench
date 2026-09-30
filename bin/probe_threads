@@ -1,0 +1,36 @@
+#!/usr/bin/env ruby
+# 使い方: bin/probe_threads <workload> <out.json>
+# TruffleRuby で、ワーカースレッド上の処理件数が単独計測より低く出る原因を切り分ける。
+# 同じプロセスで「メインで基準」「空のスレッドを1本作った後のメイン」「ワーカースレッド」「その後のメイン」を順に測る。
+WORKLOAD = ARGV.fetch(0)
+OUT = ARGV.fetch(1)
+WARMUP_SEC = Integer(ENV.fetch("WARMUP_SEC", "300"))
+
+require_relative "../config/environment"
+require_relative "../lib/workload"
+
+$seq = 0
+
+def curve(sec) = Workload.curve(WORKLOAD, sec, $seq += 10_000_000)
+
+def phase(name)
+  warn "PROBE_PHASE #{name}"
+  yield
+end
+
+Workload.setup_db
+phase("warmup") { curve(WARMUP_SEC) }
+result = { runtime: ENV.fetch("BENCH_RUNTIME"), workload: WORKLOAD, truffleruby_options: ENV.fetch("TRUFFLERUBYOPT", "") }
+result[:main_base] = phase("main_base") { curve(15) }
+result[:main_after_empty_thread] = phase("main_after_empty_thread") do
+  Thread.new {}.join
+  curve(60)
+end
+result[:worker_thread] = phase("worker_thread") { Thread.new { curve(120) }.value }
+result[:main_after_worker] = phase("main_after_worker") { curve(60) }
+phase("done") {}
+File.write(OUT, JSON.pretty_generate(result))
+avg = ->(a) { (a.sum / a.size.to_f).round(1) }
+puts "#{WORKLOAD} #{result[:truffleruby_options]}: base=#{avg.(result[:main_base])} " \
+     "after_empty=#{avg.(result[:main_after_empty_thread])} worker=#{avg.(result[:worker_thread])} " \
+     "worker_last30=#{avg.(result[:worker_thread].last(30))} after_worker=#{avg.(result[:main_after_worker])}"

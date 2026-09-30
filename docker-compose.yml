@@ -25,6 +25,18 @@ services:
       BENCH_RUNTIME: mri-yjit-rubyopt
       RUBYOPT: --yjit
 
+  # make bench-pg で使う。DATABASE_URL を渡したときだけ接続し、既定の計測は SQLite のまま
+  postgres:
+    image: postgres:18.4-trixie@sha256:a02db8cac496f15b094798a38254f14d6e00741f709360e5e00bb6668ea31636
+    environment:
+      POSTGRES_USER: bench
+      POSTGRES_PASSWORD: bench
+      POSTGRES_DB: bench
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "bench"]
+      interval: 2s
+      retries: 30
+
   truffleruby:
     <<: *bench
     build: { context: ., dockerfile: docker/Dockerfile.truffleruby }

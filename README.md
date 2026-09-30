@@ -18,6 +18,13 @@ make smoke   # 数分の動作確認（数値は tmp/smoke に出て、計測に
 make bench   # 本計測。既定は5回で、8 CPUの環境で約6時間かかる
 ```
 
+PostgreSQLにつないだ計測と、TruffleRubyのスレッドの切り分けは、別のターゲットで実行します。
+
+```bash
+make bench-pg  # PostgreSQL 18.4のコンテナを起動し、DBを使う3ワークロードを測る
+make probe     # TruffleRubyで処理を別スレッドへ移したときの落ち込みを測る（約1時間）
+```
+
 `make bench`は`results/raw/<runtime>/run-<n>/`に生の結果を書き、`results/summary.json`に回ごとの中央値・最小・最大をまとめます。回数と時間は環境変数で変えられます。
 
 ```bash
@@ -48,7 +55,7 @@ RUNS=3 WARMUP_SEC=60 MEASURE_SEC=10 make bench
 | `json_index` | `GET /api/articles` | ActiveRecordの読み込みと `as_json` によるJSON生成 |
 | `create` | `POST /api/articles` | パラメーター解析、バリデーション、INSERT |
 
-1つのワークロードは1つのプロセスで測ります。各プロセスは`WARMUP_SEC`秒のウォームアップで1秒ごとの処理件数を記録し、続く`MEASURE_SEC`秒で1リクエストごとの所要時間を記録します。`html_index`と`json_index`では、さらにスレッド数1、2、4、8で同じ秒数ずつ処理件数を数えます。
+1つのワークロードは1つのプロセスで測ります。各プロセスは`WARMUP_SEC`秒のウォームアップで1秒ごとの処理件数を記録し、続く`MEASURE_SEC`秒で1リクエストごとの所要時間を記録します。`html_index`と`json_index`では、最大のスレッド数で`PARALLEL_WARMUP_SEC`秒（既定120秒）まわしてから、スレッド数1、2、4、8で同じ秒数ずつ処理件数を数えます。TruffleRubyは処理を別スレッドで回し始めると最適化済みのコードを作り直すので、その期間を計測から外すためです。
 
 起動時間は`bin/boot`が、プロセスの起動からRailsが最初のレスポンスを返して終了するまでを親プロセスの側から測ります。
 
@@ -60,6 +67,7 @@ RUNS=3 WARMUP_SEC=60 MEASURE_SEC=10 make bench
 - `bin/run_all`は全ランタイムと全ワークロードを`RUNS`回まわします。
 - `bin/aggregate`と`lib/summary.rb`は回ごとの結果を中央値・最小・最大へまとめます。
 - `bin/image_sizes`は`docker image inspect`のサイズを記録します。
+- `bin/probe_threads`はTruffleRubyのスレッドの切り分けに使います。
 - `results/`には記事で使った計測結果を置きます。
 
 ## ライセンス
