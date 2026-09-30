@@ -23,6 +23,7 @@ PostgreSQLにつないだ計測と、TruffleRubyのスレッドの切り分け�
 ```bash
 make bench-pg  # PostgreSQL 18.4のコンテナを起動し、DBを使う3ワークロードを測る（約1時間35分）
 make bench-rubyopt  # YJITをRailsの既定で有効にした場合とRUBYOPT=--yjitの場合を比べる（約12分）
+make bench-puma  # Pumaを前段に立て、HTTPで負荷をかける参考計測（約17分）
 make probe     # TruffleRubyで処理を別スレッドへ移したときの落ち込みを測る（約47分）
 ```
 
@@ -68,6 +69,7 @@ RUNS=1 TR_WARMUP_SEC=120 make bench
 - `bin/run_all`は全ランタイムと全ワークロードを`RUNS`回まわします。
 - `bin/aggregate`と`lib/summary.rb`は回ごとの結果を中央値・最小・最大へまとめます。
 - `bin/image_sizes`は`docker image inspect`のサイズを記録します。
+- `bin/bench_puma`と`config/puma.rb`は、Pumaを前段に立てた参考計測に使います。MRIとYJITはワーカー8つ×3スレッド、TruffleRubyは1プロセス×24スレッドで、負荷は[oha](https://github.com/hatoo/oha)から同時接続24本でかけます。
 - `bin/probe_threads`はTruffleRubyのスレッドの切り分けに使います。
 - `results/`には記事で使った計測結果を置きます。
 

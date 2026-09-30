@@ -1,4 +1,4 @@
-.PHONY: build bench bench-pg bench-rubyopt probe smoke aggregate image-sizes test
+.PHONY: build bench bench-pg bench-rubyopt bench-puma probe smoke aggregate image-sizes test
 
 DC := docker compose
 
@@ -21,6 +21,12 @@ bench-pg:
 bench-rubyopt:
 	RUNTIMES="mri-yjit mri-yjit-rubyopt" WORKLOADS=html_index OUT=results/rubyopt ./bin/run_all
 	$(DC) run --rm -T mri ruby bin/aggregate results/rubyopt results/summary-rubyopt.json
+
+# Puma を前段に立て、別コンテナの oha から HTTP で負荷をかける参考計測（PostgreSQL の html_index のみ）
+bench-puma:
+	./bin/bench_puma
+	$(DC) run --rm -T mri ruby bin/aggregate_puma
+	$(DC) stop postgres
 
 # TruffleRuby で別スレッドへ移したときに速さが落ちる原因の切り分け（約1時間）
 probe:

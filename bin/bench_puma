@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+# Puma を前段に立て、別コンテナの oha から HTTP で負荷をかけて測る参考計測。
+# ランタイムごとの構成は「ランタイム ワーカー数 スレッド数」で、同時接続数はどれも CONCURRENCY にそろえる。
+set -euo pipefail
+
+RUNS="${RUNS:-3}"
+MEASURE_SEC="${MEASURE_SEC:-30}"
+CONCURRENCY="${CONCURRENCY:-24}"
+OUT="${OUT:-results/puma}"
+OHA="ghcr.io/hatoo/oha:1.16.0@sha256:3ec3dbf549ea197793482d47a6324797411406bbf438c2fe8b91f244ec641a2f"
+NET="$(basename "$PWD")_default"
+DB_URL="postgres://bench:bench@postgres/bench"
+SPECS=("mri 8 3" "mri-yjit 8 3" "truffleruby 0 24")
+
+docker compose up -d --wait postgres
+
+for n in $(seq 1 "$RUNS"); do
+  for spec in "${SPECS[@]}"; do
+    read -r rt workers threads <<< "$spec"
+    # MRI と YJIT は数秒で定常に達するが、TruffleRuby は約100秒かかるため長めに回す
+    warmup="${MRI_WARMUP_SEC:-20}"
+    [[ "$rt" == truffleruby ]] && warmup="${TR_WARMUP_SEC:-150}"
+    name="bench-puma-$rt"
+    mkdir -p "$OUT/$rt"
+    docker rm -f "$name" >/dev/null 2>&1 || true
+    docker compose run -d --name "$name" -e DATABASE_URL="$DB_URL" -e WEB_CONCURRENCY="$workers" \
+      -e RAILS_MAX_THREADS="$threads" "$rt" \
+      sh -c 'ruby -r ./config/environment -r ./lib/workload -e Workload.setup_db && exec bundle exec puma -C config/puma.rb' >/dev/null
+    until docker logs "$name" 2>&1 | grep -q "Listening on"; do
+      if [[ "$(docker inspect -f '{{.State.Running}}' "$name")" != true ]]; then
+        docker logs "$name" 2>&1 | tail -20 >&2
+        exit 1
+      fi
+      sleep 1
+    done
+    docker run --rm --network "$NET" "$OHA" -z "${warmup}s" -c "$CONCURRENCY" --no-tui "http://$name:3000/articles" >/dev/null
+    docker run --rm --network "$NET" "$OHA" -z "${MEASURE_SEC}s" -c "$CONCURRENCY" --no-tui --output-format json \
+      "http://$name:3000/articles" > "$OUT/$rt/run-$n.json"
+    docker stats --no-stream --format '{{.MemUsage}}' "$name" > "$OUT/$rt/run-$n.mem"
+    docker logs "$name" 2>&1 | grep -E "Puma version|Workers|Min threads|Process workers" > "$OUT/$rt/run-$n.puma" || true
+    docker rm -f "$name" >/dev/null
+    echo "$rt run-$n done"
+  done
+done

@@ -1,0 +1,27 @@
+#!/usr/bin/env ruby
+# 使い方: bin/aggregate_puma [results/puma] [results/summary-puma.json]
+# oha の JSON と docker stats のメモリ表示を、回ごとの中央値・最小・最大へまとめる。
+require "json"
+require_relative "../lib/summary"
+
+raw = ARGV.fetch(0, "results/puma")
+out = ARGV.fetch(1, "results/summary-puma.json")
+UNITS = { "MiB" => 1.0, "GiB" => 1024.0 }.freeze
+
+summary = Dir.children(raw).sort.to_h do |runtime|
+  runs = Dir.glob(File.join(raw, runtime, "run-*.json")).sort
+  results = runs.map { JSON.parse(File.read(it)) }
+  mem = runs.map do |path|
+    value, unit = File.read(path.sub(/\.json\z/, ".mem")).match(/\A([\d.]+)(MiB|GiB)/).captures
+    Float(value) * UNITS.fetch(unit)
+  end
+  [runtime, {
+    rps: Summary.stats(results.map { it.dig("summary", "requestsPerSec") }),
+    p50_ms: Summary.stats(results.map { it.dig("latencyPercentiles", "p50") * 1000 }),
+    p99_ms: Summary.stats(results.map { it.dig("latencyPercentiles", "p99") * 1000 }),
+    success_rate: Summary.stats(results.map { it.dig("summary", "successRate") }),
+    memory_mib: Summary.stats(mem)
+  }]
+end
+File.write(out, JSON.pretty_generate(summary))
+puts "wrote #{out}"
