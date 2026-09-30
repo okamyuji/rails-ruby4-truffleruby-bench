@@ -10,12 +10,19 @@ services:
     image: rails-ruby4-bench/mri
     environment:
       BENCH_RUNTIME: mri
+      RAILS_YJIT: "false"
 
   mri-yjit:
     <<: *bench
     image: rails-ruby4-bench/mri
     environment:
       BENCH_RUNTIME: mri-yjit
+
+  mri-yjit-rubyopt:
+    <<: *bench
+    image: rails-ruby4-bench/mri
+    environment:
+      BENCH_RUNTIME: mri-yjit-rubyopt
       RUBYOPT: --yjit
 
   truffleruby:

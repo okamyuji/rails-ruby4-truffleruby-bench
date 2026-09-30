@@ -24,6 +24,19 @@ make bench   # 本計測。既定は5回で、8 CPUの環境で約6時間かか�
 RUNS=3 WARMUP_SEC=60 MEASURE_SEC=10 make bench
 ```
 
+## ランタイムとYJITの有効化
+
+| サービス | 内容 |
+|---|---|
+| `mri` | MRI Ruby 4.0.7。`RAILS_YJIT=false`でRailsによるYJITの自動有効化を止めます |
+| `mri-yjit` | MRI Ruby 4.0.7。Rails 8.1の既定どおり、起動処理の最後でRailsがYJITを有効にします |
+| `mri-yjit-rubyopt` | MRI Ruby 4.0.7。`RUBYOPT=--yjit`で、プロセスの開始時からYJITを有効にします |
+| `truffleruby` | TruffleRuby 40.0.0（Ruby 4.0.2互換、Native構成） |
+
+`load_defaults 8.1`は、production環境で`config.yjit`をtrueにします。このため`RUBYOPT`を付けなくてもYJITは有効になります。YJITなしで測るには`config.yjit`をfalseにしてください。各計測結果の`yjit_enabled`には、計測を終えた時点でYJITが有効だったかを記録しています。
+
+`make bench`の既定は`mri`、`mri-yjit`、`truffleruby`の3つです。`mri-yjit-rubyopt`を測るときは`RUNTIMES=mri-yjit-rubyopt ./bin/run_all`を実行してください。
+
 ## 何を測るか
 
 アプリは記事（Article）、著者（Author）、コメント（Comment）の3モデルとSQLiteで構成し、起動時に同じ乱数の種で著者20件、記事1,000件、コメント5,000件を投入します。リクエストは`Rack::MockRequest`で組み立てて`Rails.application.call`へ直接渡すため、HTTPサーバーとネットワークは計測に入りません。

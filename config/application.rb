@@ -15,5 +15,7 @@ module BenchApp
     config.secret_key_base = "0" * 64
     config.logger = ActiveSupport::Logger.new(nil)
     config.log_level = :fatal
+    # load_defaults 8.1 は production で YJIT を自動で有効にするため、YJIT なしを測るときは RAILS_YJIT=false で止める
+    config.yjit = ENV.fetch("RAILS_YJIT", "true") == "true"
   end
 end
