@@ -1,4 +1,4 @@
-FROM buildpack-deps:stable
+FROM buildpack-deps:trixie@sha256:352e8a203d5cf4466abb68b7910e06b90dcd23b7ccf8104e537bd4870c35bf15
 
 # ghcr.io/graalvm/truffleruby-community は執筆時点で 25 系（Ruby 3.3 互換）までしか
 # 公開されていないため、Ruby 4.0 互換の 40.0.0 は release アセットを直接展開する。
