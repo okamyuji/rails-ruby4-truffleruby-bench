@@ -1,0 +1,65 @@
+{
+  "runtime": "mri-yjit",
+  "ruby_description": "ruby 4.0.7 (2026-09-15 revision 229531a6cf) +YJIT +PRISM [aarch64-linux]",
+  "yjit_enabled": true,
+  "rails": "8.1.4",
+  "database": "postgresql",
+  "workload": "html_index",
+  "warmup_sec": 30,
+  "measure_sec": 15,
+  "parallel_warmup_sec": 10,
+  "warmup_rps": [
+    257,
+    335,
+    337,
+    335,
+    339,
+    334,
+    332,
+    334,
+    345,
+    350,
+    329,
+    328,
+    329,
+    330,
+    329,
+    336,
+    341,
+    329,
+    326,
+    332,
+    333,
+    334,
+    312,
+    298,
+    326,
+    329,
+    319,
+    327,
+    325
+  ],
+  "rps": 330.83842443784914,
+  "p50_ms": 2.8956720052519813,
+  "p99_ms": 3.8629390037385747,
+  "requests": 4962,
+  "peak_rss_mb": 141.05859375,
+  "parallel": [
+    {
+      "threads": 1,
+      "rps": 330.4
+    },
+    {
+      "threads": 2,
+      "rps": 355.8
+    },
+    {
+      "threads": 4,
+      "rps": 354.6
+    },
+    {
+      "threads": 8,
+      "rps": 342.1333333333333
+    }
+  ]
+}

@@ -1,0 +1,65 @@
+{
+  "runtime": "mri",
+  "ruby_description": "ruby 4.0.7 (2026-09-15 revision 229531a6cf) +PRISM [aarch64-linux]",
+  "yjit_enabled": false,
+  "rails": "8.1.4",
+  "database": "sqlite3",
+  "workload": "json_index",
+  "warmup_sec": 30,
+  "measure_sec": 15,
+  "parallel_warmup_sec": 10,
+  "warmup_rps": [
+    385,
+    438,
+    422,
+    396,
+    386,
+    441,
+    387,
+    453,
+    446,
+    422,
+    398,
+    433,
+    448,
+    419,
+    458,
+    455,
+    455,
+    462,
+    457,
+    440,
+    457,
+    464,
+    464,
+    452,
+    445,
+    456,
+    463,
+    466,
+    461
+  ],
+  "rps": 464.3947149109285,
+  "p50_ms": 2.0978450047550723,
+  "p99_ms": 2.788293997582514,
+  "requests": 6966,
+  "peak_rss_mb": 107.37890625,
+  "parallel": [
+    {
+      "threads": 1,
+      "rps": 423.26666666666665
+    },
+    {
+      "threads": 2,
+      "rps": 439.46666666666664
+    },
+    {
+      "threads": 4,
+      "rps": 444.53333333333336
+    },
+    {
+      "threads": 8,
+      "rps": 418.3333333333333
+    }
+  ]
+}
