@@ -3,24 +3,33 @@
 # ランタイムの順序を回ごとにずらして、時間帯による環境の揺れが特定ランタイムに偏らないようにする。
 set -euo pipefail
 
-RUNS="${RUNS:-5}"
-WARMUP_SEC="${WARMUP_SEC:-300}"
+RUNS="${RUNS:-3}"
 MEASURE_SEC="${MEASURE_SEC:-15}"
 BOOT_SAMPLES="${BOOT_SAMPLES:-5}"
 OUT="${OUT:-results/raw}"
 read -r -a RUNTIMES <<< "${RUNTIMES:-mri mri-yjit truffleruby}"
 read -r -a WORKLOADS <<< "${WORKLOADS:-health html_index json_index create}"
 PARALLEL_WORKLOADS=" html_index json_index "
-PARALLEL_WARMUP_SEC="${PARALLEL_WARMUP_SEC:-120}"
 THREADS="${THREADS:-1,2,4,8}"
 
 DB_ARGS=()
 [[ -n "${DATABASE_URL:-}" ]] && DB_ARGS=(-e DATABASE_URL="$DATABASE_URL")
 
+# 試走で定常の95%に届くまで、MRI と YJIT は2秒、TruffleRuby は約100秒かかった。
+# 温め時間はそれに余裕を持たせてランタイムごとに分ける（並列の前の温めは、TruffleRuby の作り直しが60〜90秒で終わるため）。
+# 使い方: run <runtime> <threads> <command...>
 run() {
+  local rt="$1" threads="$2"
+  shift 2
+  local warmup parallel_warmup
+  if [[ "$rt" == truffleruby ]]; then
+    warmup="${TR_WARMUP_SEC:-300}" parallel_warmup="${TR_PARALLEL_WARMUP_SEC:-120}"
+  else
+    warmup="${MRI_WARMUP_SEC:-30}" parallel_warmup="${MRI_PARALLEL_WARMUP_SEC:-10}"
+  fi
   # bash 3.2 は set -u の下で空配列を展開するとエラーになるため、要素があるときだけ展開する
-  docker compose run --rm -T -e WARMUP_SEC="$WARMUP_SEC" -e MEASURE_SEC="$MEASURE_SEC" \
-    -e PARALLEL_WARMUP_SEC="$PARALLEL_WARMUP_SEC" ${DB_ARGS[@]+"${DB_ARGS[@]}"} "$@"
+  docker compose run --rm -T -e WARMUP_SEC="$warmup" -e MEASURE_SEC="$MEASURE_SEC" \
+    -e PARALLEL_WARMUP_SEC="$parallel_warmup" -e THREADS="$threads" ${DB_ARGS[@]+"${DB_ARGS[@]}"} "$rt" "$@"
 }
 
 for n in $(seq 1 "$RUNS"); do
@@ -29,11 +38,11 @@ for n in $(seq 1 "$RUNS"); do
     rt="${RUNTIMES[$(( (i + offset) % ${#RUNTIMES[@]} ))]}"
     dir="$OUT/$rt/run-$n"
     mkdir -p "$dir"
-    run "$rt" ruby bin/boot "$BOOT_SAMPLES" "$dir/boot.json"
+    run "$rt" "" ruby bin/boot "$BOOT_SAMPLES" "$dir/boot.json"
     for w in "${WORKLOADS[@]}"; do
       threads=""
       [[ "$PARALLEL_WORKLOADS" == *" $w "* ]] && threads="$THREADS"
-      run -e THREADS="$threads" "$rt" ruby bin/bench "$w" "$dir/$w.json"
+      run "$rt" "$threads" ruby bin/bench "$w" "$dir/$w.json"
     done
   done
 done

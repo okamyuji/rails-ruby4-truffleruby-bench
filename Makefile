@@ -5,7 +5,7 @@ DC := docker compose
 build:
 	$(DC) build mri truffleruby
 
-# 既定は5回。回数や時間は RUNS=3 WARMUP_SEC=60 のように上書きできる。
+# 既定は3回。回数や温め時間は RUNS=5 TR_WARMUP_SEC=180 のように上書きできる。
 bench:
 	./bin/run_all
 	$(MAKE) image-sizes aggregate
@@ -29,7 +29,7 @@ probe:
 
 # 数分で終わる動作確認。数値は計測に使わない。
 smoke:
-	RUNS=1 WARMUP_SEC=2 MEASURE_SEC=2 PARALLEL_WARMUP_SEC=2 BOOT_SAMPLES=1 THREADS=1,2 OUT=tmp/smoke ./bin/run_all
+	RUNS=1 MRI_WARMUP_SEC=2 TR_WARMUP_SEC=2 MRI_PARALLEL_WARMUP_SEC=2 TR_PARALLEL_WARMUP_SEC=2 MEASURE_SEC=2 BOOT_SAMPLES=1 THREADS=1,2 OUT=tmp/smoke ./bin/run_all
 
 aggregate:
 	$(DC) run --rm -T mri ruby bin/aggregate results/raw results/summary.json
