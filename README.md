@@ -22,6 +22,7 @@ PostgreSQLにつないだ計測と、TruffleRubyのスレッドの切り分け�
 
 ```bash
 make bench-pg  # PostgreSQL 18.4のコンテナを起動し、DBを使う3ワークロードを測る（約1時間35分）
+make bench-rubyopt  # YJITをRailsの既定で有効にした場合とRUBYOPT=--yjitの場合を比べる（約12分）
 make probe     # TruffleRubyで処理を別スレッドへ移したときの落ち込みを測る（約47分）
 ```
 
@@ -42,7 +43,7 @@ RUNS=1 TR_WARMUP_SEC=120 make bench
 
 `load_defaults 8.1`は、production環境で`config.yjit`をtrueにします。このため`RUBYOPT`を付けなくてもYJITは有効になります。YJITなしで測るには`config.yjit`をfalseにしてください。各計測結果の`yjit_enabled`には、計測を終えた時点でYJITが有効だったかを記録しています。
 
-`make bench`の既定は`mri`、`mri-yjit`、`truffleruby`の3つです。`mri-yjit-rubyopt`を測るときは`RUNTIMES=mri-yjit-rubyopt ./bin/run_all`を実行してください。
+`make bench`の既定は`mri`、`mri-yjit`、`truffleruby`の3つです。`mri-yjit-rubyopt`は`make bench-rubyopt`で`mri-yjit`と並べて測ります。
 
 ## 何を測るか
 

@@ -1,4 +1,4 @@
-.PHONY: build bench bench-pg probe smoke aggregate image-sizes test
+.PHONY: build bench bench-pg bench-rubyopt probe smoke aggregate image-sizes test
 
 DC := docker compose
 
@@ -16,6 +16,11 @@ bench-pg:
 	$(DC) up -d --wait postgres
 	DATABASE_URL=$(PG_URL) WORKLOADS="html_index json_index create" OUT=results/raw-pg ./bin/run_all
 	$(DC) run --rm -T mri ruby bin/aggregate results/raw-pg results/summary-pg.json
+
+# YJIT を Rails の既定で有効にした場合と RUBYOPT=--yjit の場合の、起動時間とスループットの比較
+bench-rubyopt:
+	RUNTIMES="mri-yjit mri-yjit-rubyopt" WORKLOADS=html_index OUT=results/rubyopt ./bin/run_all
+	$(DC) run --rm -T mri ruby bin/aggregate results/rubyopt results/summary-rubyopt.json
 
 # TruffleRuby で別スレッドへ移したときに速さが落ちる原因の切り分け（約1時間）
 probe:
