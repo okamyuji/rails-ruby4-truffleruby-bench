@@ -1,6 +1,6 @@
 # rails-ruby4-truffleruby-bench
 
-Rails 8.1.4のアプリをMRI Ruby 4.0.7、MRI Ruby 4.0.7 + YJIT、TruffleRuby 40.0.0（Ruby 4.0.2互換）の3ランタイムで動かし、Railsで時間を使う処理ごとの速さと起動時間とメモリを比べるベンチマークです。すべての計測はDockerコンテナの中で行い、1回ごとに新しいコンテナを起動して複数回まわします。
+Rails 8.1.4.1のアプリをMRI Ruby 4.0.7、MRI Ruby 4.0.7 + YJIT、TruffleRuby 40.0.0（Ruby 4.0.2互換）の3ランタイムで動かし、Railsで時間を使う処理ごとの速さと起動時間とメモリを比べるベンチマークです。すべての計測はDockerコンテナの中で行い、1回ごとに新しいコンテナを起動して複数回まわします。
 
 ## 必要なもの
 
@@ -71,7 +71,7 @@ RUNS=1 TR_WARMUP_SEC=120 make bench
 - `bin/image_sizes`は`docker image inspect`のサイズを記録します。
 - `bin/bench_puma`と`config/puma.rb`は、Pumaを前段に立てた参考計測に使います。MRIとYJITはワーカー8つ×3スレッド、TruffleRubyは1プロセス×24スレッドで、負荷は[oha](https://github.com/hatoo/oha)から同時接続24本でかけます。
 - `bin/probe_threads`はTruffleRubyのスレッドの切り分けに使います。
-- `results/`には記事で使った計測結果を置きます。
+- `results/`には記事で使った計測結果を置きます。この結果はRails 8.1.4で測ったもので、各JSONの`rails`に計測したときのRailsの版を記録しています。
 
 ## ライセンス
 
